@@ -1,4 +1,4 @@
 window.APP_CONFIG = {
-  SUPABASE_URL: "COLE_AQUI_A_URL_DO_SUPABASE",
-  SUPABASE_KEY: "COLE_AQUI_A_CHAVE_PUBLICA_DO_SUPABASE"
+  SUPABASE_URL: "https://zekbpvmzvfzfrvajzfjm.supabase.co",
+  SUPABASE_KEY: "sb_publishable_mJol_Y8kVKy9LyaX5cROhw_AJITlN5n"
 };
