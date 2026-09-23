@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Conexões do Sul de Minas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root { --azul:#123b67; --ciano:#18b7c9; --fundo:#eef3f8; --card:#fff; --texto:#17283b; --muted:#6b7c90; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--fundo);color:var(--texto)}
+    header{background:linear-gradient(120deg,#0b294a,#164e7c 65%,#148ea0);color:#fff;padding:24px 5%;box-shadow:0 8px 22px #0b294a30}
+    header h1{margin:0 0 8px;font-size:clamp(24px,4vw,40px)} header p{margin:0;opacity:.88}
+    main{max-width:1400px;margin:auto;padding:24px 4% 40px}.grid{display:grid;grid-template-columns:340px 1fr;gap:20px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 8px 24px #17446b14;border:1px solid #dfe9f2;padding:20px}
+    h2{font-size:18px;margin:0 0 16px}.form{display:grid;gap:12px}label{font-size:13px;font-weight:700;color:#41566e}
+    input{width:100%;padding:12px 13px;border:1px solid #cddae6;border-radius:9px;font:inherit;outline:none}input:focus{border-color:var(--ciano);box-shadow:0 0 0 3px #18b7c920}
+    button{padding:13px;border:0;border-radius:9px;background:linear-gradient(90deg,var(--azul),#176e92);color:#fff;font-weight:800;cursor:pointer}button:disabled{opacity:.6}
+    .status{font-size:13px;min-height:18px}.ok{color:#087a55}.erro{color:#b42318}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}.kpi{padding:18px}.kpi strong{display:block;font-size:30px;color:var(--azul)}.kpi span{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700}
+    #map{height:520px;border-radius:12px;background:#dbe6ef}.mapcard{padding:10px}.ranking{margin-top:20px}.ranking-list{display:grid;gap:9px}.rank{display:flex;justify-content:space-between;padding:12px;border-radius:9px;background:#f3f7fa}.rank b{color:var(--azul)}
+    footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}.config-warning{display:none;background:#fff4ce;border:1px solid #e4b000;padding:12px;border-radius:9px;margin-bottom:12px;font-size:13px}
+    @media(max-width:850px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr}#map{height:420px}}
+  </style>
+</head>
+<body>
+<header><h1>Mapa de Conexões do Sul de Minas</h1><p>Participação, presença territorial e integração institucional em tempo real.</p></header>
+<main>
+  <div id="configWarning" class="config-warning"><b>Configuração pendente:</b> inclua a URL e a chave pública do Supabase no arquivo <code>config.js</code>.</div>
+  <section class="kpis">
+    <div class="card kpi"><strong id="total">0</strong><span>Participantes</span></div>
+    <div class="card kpi"><strong id="municipios">0</strong><span>Municípios</span></div>
+    <div class="card kpi"><strong id="instituicoes">0</strong><span>Instituições</span></div>
+  </section>
+  <section class="grid">
+    <aside>
+      <div class="card">
+        <h2>Registrar participação</h2>
+        <form id="form" class="form">
+          <div><label for="nome">Nome</label><input id="nome" maxlength="120" required /></div>
+          <div><label for="instituicao">Instituição</label><input id="instituicao" maxlength="160" required /></div>
+          <div><label for="cidade">Cidade</label><input id="cidade" maxlength="120" placeholder="Ex.: Poços de Caldas" required /></div>
+          <button id="salvar" type="submit">Marcar presença</button>
+          <div id="status" class="status"></div>
+        </form>
+      </div>
+      <div class="card ranking">
+        <h2>Municípios em destaque</h2>
+        <div id="ranking" class="ranking-list"><span>Carregando...</span></div>
+      </div>
+    </aside>
+    <div class="card mapcard"><div id="map"></div></div>
+  </section>
+</main>
+<footer>Experiência institucional de conexão regional</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const CONFIG_OK = window.APP_CONFIG && window.APP_CONFIG.SUPABASE_URL.startsWith('https://') && window.APP_CONFIG.SUPABASE_KEY.startsWith('sb_');
+if(!CONFIG_OK) document.getElementById('configWarning').style.display='block';
+const client = CONFIG_OK ? supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_KEY) : null;
+const map = L.map('map').setView([-21.7,-45.6], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+const coords = {
+ 'pocos de caldas':[-21.7878,-46.5614], 'pouso alegre':[-22.2300,-45.9327], 'varginha':[-21.5514,-45.4303],
+ 'alfenas':[-21.4256,-45.9477], 'passos':[-20.7189,-46.6090], 'lavras':[-21.2450,-44.9998],
+ 'itajuba':[-22.4256,-45.4528], 'tres coracoes':[-21.6960,-45.2537], 'sao lourenco':[-22.1166,-45.0544],
+ 'extrema':[-22.8540,-46.3188], 'cambuquira':[-21.8530,-45.2896], 'machado':[-21.6745,-45.9192]
+};
+const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+let markers=[];
+function desenhar(dados){
+ markers.forEach(m=>map.removeLayer(m)); markers=[];
+ const cidades={}; const inst=new Set();
+ dados.forEach(p=>{const c=(p.cidade||'').trim(); if(c)cidades[c]=(cidades[c]||0)+1;if(p.instituicao)inst.add(normalize(p.instituicao));});
+ document.getElementById('total').textContent=dados.length;
+ document.getElementById('municipios').textContent=Object.keys(cidades).length;
+ document.getElementById('instituicoes').textContent=inst.size;
+ const ranking=Object.entries(cidades).sort((a,b)=>b[1]-a[1]).slice(0,6);
+ document.getElementById('ranking').innerHTML=ranking.length?ranking.map(([c,n],i)=>`<div class="rank"><span>${i+1}. ${c}</span><b>${n}</b></div>`).join(''):'<span>Nenhuma participação ainda.</span>';
+ ranking.forEach(([c,n])=>{const pos=coords[normalize(c)];if(pos){const m=L.circleMarker(pos,{radius:7+Math.min(n,10),color:'#0b496f',weight:2,fillColor:'#18b7c9',fillOpacity:.8}).addTo(map).bindPopup(`<b>${c}</b><br>${n} participante(s)`);markers.push(m);}});
+}
+async function carregar(){
+ if(!client){desenhar([]);return;}
+ const {data,error}=await client.from('participantes').select('*').order('created_at',{ascending:false});
+ if(error){document.getElementById('status').textContent='Não foi possível consultar o banco: '+error.message;document.getElementById('status').className='status erro';return;}
+ desenhar(data||[]);
+}
+document.getElementById('form').addEventListener('submit',async e=>{
+ e.preventDefault(); if(!client){document.getElementById('status').textContent='Primeiro configure o arquivo config.js.';document.getElementById('status').className='status erro';return;}
+ const nome=document.getElementById('nome').value.trim(), instituicao=document.getElementById('instituicao').value.trim(), cidade=document.getElementById('cidade').value.trim();
+ const btn=document.getElementById('salvar');btn.disabled=true;btn.textContent='Salvando...';
+ const {error}=await client.from('participantes').insert({nome,instituicao,cidade});
+ btn.disabled=false;btn.textContent='Marcar presença';
+ if(error){document.getElementById('status').textContent='Erro: '+error.message;document.getElementById('status').className='status erro';return;}
+ document.getElementById('status').textContent='Participação registrada com sucesso!';document.getElementById('status').className='status ok';e.target.reset();carregar();
+});
+carregar();
+</script>
+</body>
+</html>
